@@ -111,10 +111,12 @@ def update_background(
     profile: np.ndarray,
     alpha: float,
 ) -> np.ndarray:
-    """Update the background with an exponential moving average."""
-    # TODO: implement the exponential background update:
-    # new_background = (1 - alpha) * background + alpha * profile
-    # Try several alpha values and explain the tradeoff.
+    """Update the background with an exponential moving average.
+
+    A small alpha adapts slowly and keeps motion visible longer;
+    a large alpha adapts quickly and may absorb slow hand motion
+    into the background.
+    """
     new_background = (1 - alpha) * background + alpha * profile
     return new_background
 

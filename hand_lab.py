@@ -36,7 +36,7 @@ def estimate_distance(
     min_range_m: float,
     max_range_m: float,
     peak_ratio: float,
-) ->tuple[float | None, np.ndarray]:
+) -> tuple[float | None, np.ndarray]:
     difference = subtract_background(profile, background)
 
     start_bin = max(1, int(math.ceil(min_range_m / bin_spacing_m)))
@@ -46,23 +46,21 @@ def estimate_distance(
     if len(window) == 0:
         return None, difference
 
-    # TODO: find the strongest peak inside window.
-    # TODO: reject weak peaks using peak_ratio and a typical window level.
-    # TODO: convert the peak bin index to meters using bin_spacing_m.
+    # Find the strongest peak inside the window.
+    peak_bin_offset = int(np.argmax(window))
+    peak_value = float(window[peak_bin_offset])
 
-    peak_ratio_threshold = 67
-
-
-    peak = np.max(window)
-    peak_ratio = peak / np.max(window)
-    if peak_ratio < peak_ratio_threshold:
+    # Reject weak peaks: compare peak against a typical window level (median).
+    # The peak_ratio parameter defines the minimum multiple of the median level.
+    window_level = float(np.median(window))
+    if window_level <= 0:
+        window_level = float(np.mean(window))
+    if window_level <= 0 or peak_value < peak_ratio * window_level:
         return None, difference
 
-    peak_bin = np.argmax(window) + start_bin
+    # Convert the peak bin index to meters.
+    peak_bin = peak_bin_offset + start_bin
     peak_m = peak_bin * bin_spacing_m
-    peak_ratio = peak / np.max(window)
-    if peak_ratio < peak_ratio_threshold:
-        return None, difference
     return peak_m, difference
 
 
@@ -94,10 +92,8 @@ def collect_background_profiles(
     expected_range_profile_bytes: int,
 ) -> list[np.ndarray]:
     """Collect empty-scene range profiles before the hand enters the scene."""
-    # TODO: keep reading frames until you have frame_count profiles.
-    # Use read_lab_frame(port, frame_timeout, expected_range_profile_bytes).
     profiles = []
-    for frame in range(frame_count):
+    while len(profiles) < frame_count:
         _, profile = read_lab_frame(port, frame_timeout, expected_range_profile_bytes)
         if profile is not None:
             profiles.append(profile)
@@ -118,18 +114,22 @@ def smooth_distance(
     distance: float | None,
     method: str,
 ) -> float | None:
-    """Smooth the latest distance estimate with a short mean or median filter."""
+    """Smooth the latest distance estimate with a short mean or median filter.
+
+    Mean smoothing responds more quickly but a single bad peak can pull
+    the estimate away from the true distance. Median smoothing is more
+    robust to outliers because it ignores extreme values.
+    """
     if distance is None:
         return None
 
     history.append(float(distance))
     if method == "mean":
-        return np.mean(history)
+        return float(np.mean(history))
     elif method == "median":
-        return np.median(history)
+        return float(np.median(history))
 
-    # TODO: implement both method == "mean" and method == "median".
-    # Think about which one is more reasonable when a single bad peak appears.
+    return float(np.median(history))
 
 
 def stop_and_drain(port: serial.Serial) -> None:
