@@ -104,20 +104,44 @@ class SquatCounter:
         self.last_count_time_s = -1e9
 
     def update(self, stable_label: str | None, time_s: float) -> str:
-        """Advance standing -> squat -> standing state machine."""
-        # TODO(Student): implement the squat-counting state machine.
-        #
-        # Suggested states:
-        # - "wait_for_standing": wait until the user is first detected standing.
-        # - "standing_ready": standing posture is stable; wait for a squat.
-        # - "in_squat": squat posture is stable; wait for standing again.
-        #
-        # Count exactly one squat when the stable labels follow:
-        # standing -> squat -> standing
-        #
-        # Ignore labels that are neither standing_label nor squat_label, and use
-        # min_count_interval_s to avoid double-counting the same motion.
-        raise NotImplementedError("TODO: implement squat state machine.")
+        """Advance standing -> squat -> standing state machine.
+
+        Returns an event string describing what happened:
+        - "" (empty): no state change
+        - "stand": transitioned to standing_ready
+        - "squat": transitioned to in_squat
+        - "count": counted a squat (standing -> squat -> standing complete)
+        """
+        if stable_label is None:
+            return ""
+
+        if stable_label not in (self.standing_label, self.squat_label):
+            return ""
+
+        event = ""
+
+        if self.state == "wait_for_standing":
+            if stable_label == self.standing_label:
+                self.state = "standing_ready"
+                event = "stand"
+
+        elif self.state == "standing_ready":
+            if stable_label == self.squat_label:
+                self.state = "in_squat"
+                event = "squat"
+
+        elif self.state == "in_squat":
+            if stable_label == self.standing_label:
+                elapsed = time_s - self.last_count_time_s
+                if elapsed >= self.min_count_interval_s:
+                    self.count += 1
+                    self.last_count_time_s = time_s
+                    event = "count"
+                self.state = "standing_ready"
+                if not event:
+                    event = "stand"
+
+        return event
 
 
 class ConsecutivePredictionFilter:
@@ -130,15 +154,32 @@ class ConsecutivePredictionFilter:
         self.history.clear()
 
     def update(self, prediction, confidence: float | None) -> str | None:
-        # TODO(Student): implement a simple debouncer for noisy predictions.
-        #
-        # Requirements:
-        # 1. If confidence is available and below confidence_threshold, treat
-        #    this update as unstable.
-        # 2. Keep the most recent required_count labels in self.history.
-        # 3. Return a label only when all entries in the history agree.
-        # 4. Otherwise return None.
-        raise NotImplementedError("TODO: implement consecutive prediction filter.")
+        """Debounce noisy predictions by requiring consecutive agreement.
+
+        Returns the stable label when all entries in the history match,
+        or None if the prediction is unstable or confidence is too low.
+        """
+        # 1. Reject low-confidence predictions
+        if confidence is not None and confidence < self.confidence_threshold:
+            self.history.append(None)
+            return None
+
+        # 2. Keep the most recent required_count labels
+        self.history.append(prediction)
+
+        # 3. Return a label only when all entries agree
+        if len(self.history) < self.required_count:
+            return None
+
+        first = self.history[0]
+        if first is None:
+            return None
+
+        for entry in self.history:
+            if entry != first:
+                return None
+
+        return str(first)
 
 
 class SquatCounterPlot:
