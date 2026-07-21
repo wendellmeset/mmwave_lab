@@ -36,7 +36,7 @@ def estimate_distance(
     min_range_m: float,
     max_range_m: float,
     peak_ratio: float,
-) -> tuple[float | None, np.ndarray]:
+) ->tuple[float | None, np.ndarray]:
     difference = subtract_background(profile, background)
 
     start_bin = max(1, int(math.ceil(min_range_m / bin_spacing_m)))
@@ -49,7 +49,22 @@ def estimate_distance(
     # TODO: find the strongest peak inside window.
     # TODO: reject weak peaks using peak_ratio and a typical window level.
     # TODO: convert the peak bin index to meters using bin_spacing_m.
-    raise NotImplementedError("TODO: implement hand target peak detection.")
+
+    peak_ratio_threshold = 67
+
+
+    peak = np.max(window)
+    peak_ratio = peak / np.max(window)
+    if peak_ratio < peak_ratio_threshold:
+        return None, difference
+
+    peak_bin = np.argmax(window) + start_bin
+    peak_m = peak_bin * bin_spacing_m
+    peak_ratio = peak / np.max(window)
+    if peak_ratio < peak_ratio_threshold:
+        return None, difference
+    return peak_m, difference
+
 
 
 def db_scale(values: np.ndarray) -> np.ndarray:
@@ -81,19 +96,21 @@ def collect_background_profiles(
     """Collect empty-scene range profiles before the hand enters the scene."""
     # TODO: keep reading frames until you have frame_count profiles.
     # Use read_lab_frame(port, frame_timeout, expected_range_profile_bytes).
-    raise NotImplementedError("TODO: collect N empty-scene background profiles.")
-
+    profiles = []
+    for frame in range(frame_count):
+        _, profile = read_lab_frame(port, frame_timeout, expected_range_profile_bytes)
+        if profile is not None:
+            profiles.append(profile)
+    return profiles
 
 def make_background(profiles: list[np.ndarray]) -> np.ndarray:
     """Compute one stable background profile from the empty-scene profiles."""
-    # TODO: stack the profiles and compute the median at each range bin.
-    raise NotImplementedError("TODO: compute the median background profile.")
-
+    stacked = np.stack(profiles)
+    return np.median(stacked, axis=0)
 
 def subtract_background(profile: np.ndarray, background: np.ndarray) -> np.ndarray:
     """Return the positive range-profile change after background subtraction."""
-    # TODO: implement max(profile - background, 0).
-    raise NotImplementedError("TODO: implement positive background subtraction.")
+    return np.max(profile - background, 0)
 
 
 def smooth_distance(
@@ -106,10 +123,13 @@ def smooth_distance(
         return None
 
     history.append(float(distance))
+    if method == "mean":
+        return np.mean(history)
+    elif method == "median":
+        return np.median(history)
 
     # TODO: implement both method == "mean" and method == "median".
     # Think about which one is more reasonable when a single bad peak appears.
-    raise NotImplementedError("TODO: implement mean and median distance smoothing.")
 
 
 def stop_and_drain(port: serial.Serial) -> None:
