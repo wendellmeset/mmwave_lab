@@ -106,7 +106,7 @@ def make_background(profiles: list[np.ndarray]) -> np.ndarray:
 
 def subtract_background(profile: np.ndarray, background: np.ndarray) -> np.ndarray:
     """Return the positive range-profile change after background subtraction."""
-    return np.max(profile - background, 0)
+    return np.maximum(profile - background, 0)
 
 
 def smooth_distance(

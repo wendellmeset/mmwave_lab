@@ -1,0 +1,16 @@
+ERROR 1
+> channelCfg 7 3 0
+Could not configure radar: No CLI response while sending 'channelCfg 7 3 0'. Check the serial port and baud rate; after a baudRate command the preflashed demo may still be listening at 1250000 until the EVM is reset. Reset or power-cycle the EVM if the port is correct.
+
+ERROR 2 Background captured. Put your hand in front of the radar.
+> sensorStop 0
+Traceback (most recent call last):
+  File "C:\Users\ezrab\Projects\COSMOS-Cluster10\labs\lab_11_mmwave\mmwave_lab\hand_lab.py", line 325, in <module>
+    main()
+  File "C:\Users\ezrab\Projects\COSMOS-Cluster10\labs\lab_11_mmwave\mmwave_lab\hand_lab.py", line 269, in main
+    distance, difference = estimate_distance(
+                           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ezrab\Projects\COSMOS-Cluster10\labs\lab_11_mmwave\mmwave_lab\hand_lab.py", line 43, in estimate_distance
+    stop_bin = min(len(difference), int(math.floor(max_range_m / bin_spacing_m)) + 1)
+                   ^^^^^^^^^^^^^^^
+TypeError: object of type 'numpy.float64' has no len()
